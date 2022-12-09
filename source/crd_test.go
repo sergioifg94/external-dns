@@ -60,7 +60,7 @@ func objBody(codec runtime.Encoder, obj runtime.Object) io.ReadCloser {
 func fakeRESTClient(endpoints []*endpoint.Endpoint, apiVersion, kind, namespace, name string, annotations map[string]string, labels map[string]string, t *testing.T) rest.Interface {
 	groupVersion, _ := schema.ParseGroupVersion(apiVersion)
 	scheme := runtime.NewScheme()
-	addKnownTypes(scheme, groupVersion)
+	addKnownTypes(scheme, groupVersion.WithKind(kind))
 
 	dnsEndpointList := endpoint.DNSEndpointList{}
 	dnsEndpoint := &endpoint.DNSEndpoint{
@@ -394,7 +394,7 @@ func testCRDSourceEndpoints(t *testing.T) {
 			require.NoError(t, err)
 
 			scheme := runtime.NewScheme()
-			require.NoError(t, addKnownTypes(scheme, groupVersion))
+			require.NoError(t, addKnownTypes(scheme, groupVersion.WithKind(ti.kind)))
 
 			labelSelector, err := labels.Parse(ti.labelFilter)
 			require.NoError(t, err)

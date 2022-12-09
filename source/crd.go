@@ -46,12 +46,17 @@ type crdSource struct {
 	labelSelector    labels.Selector
 }
 
-func addKnownTypes(scheme *runtime.Scheme, groupVersion schema.GroupVersion) error {
-	scheme.AddKnownTypes(groupVersion,
-		&endpoint.DNSEndpoint{},
+func addKnownTypes(scheme *runtime.Scheme, gvk schema.GroupVersionKind) error {
+	scheme.AddKnownTypes(gvk.GroupVersion())
+
+	scheme.AddKnownTypeWithName(gvk, &endpoint.DNSEndpoint{})
+	scheme.AddKnownTypeWithName(
+		gvk.GroupVersion().WithKind(fmt.Sprintf("%sList", gvk.Kind)),
 		&endpoint.DNSEndpointList{},
 	)
-	metav1.AddToGroupVersion(scheme, groupVersion)
+
+	metav1.AddToGroupVersion(scheme, gvk.GroupVersion())
+
 	return nil
 }
 
@@ -72,6 +77,8 @@ func NewCRDClientForAPIVersionKind(client kubernetes.Interface, kubeConfig, apiS
 	if err != nil {
 		return nil, nil, err
 	}
+	gvk := groupVersion.WithKind(kind)
+
 	apiResourceList, err := client.Discovery().ServerResourcesForGroupVersion(groupVersion.String())
 	if err != nil {
 		return nil, nil, fmt.Errorf("error listing resources in GroupVersion %q: %s", groupVersion.String(), err)
@@ -89,7 +96,7 @@ func NewCRDClientForAPIVersionKind(client kubernetes.Interface, kubeConfig, apiS
 	}
 
 	scheme := runtime.NewScheme()
-	addKnownTypes(scheme, groupVersion)
+	addKnownTypes(scheme, gvk)
 
 	config.ContentConfig.GroupVersion = &groupVersion
 	config.APIPath = "/apis"
@@ -130,6 +137,8 @@ func (cs *crdSource) Endpoints(ctx context.Context) ([]*endpoint.Endpoint, error
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugf("Found the following items: %v", result.Items)
 
 	result, err = cs.filterByAnnotations(result)
 
